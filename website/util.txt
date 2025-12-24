@@ -5,6 +5,8 @@ button
 image
 ![mainimage](url "main image")  
 
+![메인 썸네일](https://picsum.photos/1200/600)
+
 markdown image
 ![image](https://raw.githubusercontent.com/mcjoi/img1-repo/main/userform_xls.webp "image")
 

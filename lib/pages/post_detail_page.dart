@@ -1,4 +1,8 @@
+import 'dart:ui_web' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:html' as html;
 import 'package:go_router/go_router.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_highlight/flutter_highlight.dart';
@@ -131,6 +135,7 @@ class PostDetailPage extends StatelessWidget {
     return MarkdownBody(
       data: post.markdown,
       selectable: true,
+      blockSyntaxes: _markdownBlockSyntaxes,
       styleSheet: MarkdownStyleSheet(
         blockSpacing: 0,
 
@@ -194,11 +199,105 @@ class PostDetailPage extends StatelessWidget {
           color: cs.secondary,
           decoration: TextDecoration.underline,
         ),
+        horizontalRuleDecoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(
+              width: 0.5,
+              color: cs.onSurface.withAlpha(120),
+            ),
+          ),
+        ),
       ),
       builders: {
         'pre': _CodeBlockBuilder(),
         'img': _MarkdownImageBuilder(),
+        'youtube': _YouTubeBlockBuilder(),
+        'custom-hr': _MarkdownHrBuilder(),
       },
+    );
+  }
+}
+
+final Set<String> _registeredYouTubeViewTypes = <String>{};
+
+void _registerYouTubeIframe(String viewType, String embedUrl) {
+  if (_registeredYouTubeViewTypes.contains(viewType)) return;
+  _registeredYouTubeViewTypes.add(viewType);
+
+  ui.platformViewRegistry.registerViewFactory(
+    viewType,
+    (int viewId) {
+      final iframe = html.IFrameElement()
+        ..src = embedUrl
+        ..style.border = 'none'
+        ..allowFullscreen = true;
+      return iframe;
+    },
+  );
+}
+
+final List<md.BlockSyntax> _markdownBlockSyntaxes = md
+    .ExtensionSet.gitHubFlavored.blockSyntaxes
+    .where((syntax) => syntax is! md.HorizontalRuleSyntax)
+    .toList()
+  ..add(_CustomHrSyntax());
+
+class _CustomHrSyntax extends md.BlockSyntax {
+  @override
+  RegExp get pattern =>
+      RegExp(r'^[ ]{0,3}((\*\s*){3,}|(-\s*){3,}|(_\s*){3,})$');
+
+  @override
+  md.Node? parse(md.BlockParser parser) {
+    parser.advance();
+    return md.Element('custom-hr', []);
+  }
+}
+
+class _YouTubeBlockBuilder extends MarkdownElementBuilder {
+  @override
+  Widget visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+    // :::youtube VIDEO_ID [ratio]
+    final raw = element.textContent.trim();
+    final parts = raw.split(RegExp(r'\s+'));
+
+    if (parts.isEmpty) return const SizedBox.shrink();
+
+    final videoId = parts[0];
+    final ratio = parts.length > 1 ? parts[1] : '16:9';
+
+    double aspectRatio = 16 / 9;
+    if (ratio.contains(':')) {
+      final nums = ratio.split(':');
+      if (nums.length == 2) {
+        final w = double.tryParse(nums[0]);
+        final h = double.tryParse(nums[1]);
+        if (w != null && h != null && h != 0) {
+          aspectRatio = w / h;
+        }
+      }
+    }
+
+    final embedUrl = 'https://www.youtube.com/embed/$videoId';
+
+    if (!kIsWeb) {
+      return const SizedBox.shrink();
+    }
+
+    final viewType = 'youtube-iframe-$videoId';
+    _registerYouTubeIframe(viewType, embedUrl);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: AspectRatio(
+          aspectRatio: aspectRatio,
+          child: HtmlElementView(
+            viewType: viewType,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -233,40 +332,20 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
           // border: Border.all(color: const Color(0xFF30363D)),
         ),
         child: Transform.translate(
-          offset: const Offset(0, 6),
+          offset: const Offset(0, 10),
           child: HighlightView(
             code,
             language: language,
             theme: githubDarkTheme, // ⭐ 핵심
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
             textStyle: const TextStyle(
-              fontFamily: 'NanumGothicCoding',
-              letterSpacing: 1.3,
-              fontSize: 18,
+              fontFamily: 'Hack',
+              // letterSpacing: 1,
+              fontSize: 16,
               height: 1.6,
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-// ============================================================
-// ✅ Image Builder
-// ============================================================
-
-class _MarkdownImageBuilder extends MarkdownElementBuilder {
-  @override
-  Widget visitElementAfter(md.Element element, TextStyle? preferredStyle) {
-    final src = element.attributes['src'];
-    if (src == null) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.network(src, fit: BoxFit.cover),
       ),
     );
   }
@@ -294,3 +373,74 @@ const Map<String, TextStyle> githubDarkTheme = {
   'meta': TextStyle(color: Color(0xFFD2A8FF)),
   'symbol': TextStyle(color: Color(0xFFA5D6FF)),
 };
+
+// ============================================================
+// ✅ Image Builder
+// ============================================================
+
+class _MarkdownImageBuilder extends MarkdownElementBuilder {
+  @override
+  Widget visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+    final src = element.attributes['src'];
+    if (src == null) return const SizedBox.shrink();
+
+    double? maxHeight;
+    BoxFit fit = BoxFit.cover;
+
+    // 🔑 URL 규칙 기반 사이즈 분기
+    if (src.contains('@small')) {
+      maxHeight = 400;
+      fit = BoxFit.contain;
+    } else if (src.contains('@tall')) {
+      maxHeight = 800;
+      fit = BoxFit.contain;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: maxHeight ?? double.infinity,
+          ),
+          child: Image.network(
+            src,
+            width: double.infinity,
+            fit: fit,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MarkdownHrBuilder extends MarkdownElementBuilder {
+  @override
+  bool isBlockElement() => true;
+
+  @override
+  Widget visitElementAfter(md.Element element, TextStyle? preferredStyle) {
+    return Builder(
+      builder: (context) {
+        final cs = Theme.of(context).colorScheme;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 40),
+            Center(
+              child: FractionallySizedBox(
+                widthFactor: 0.8,
+                child: Container(
+                  height: 0.5,
+                  color: cs.onSurface.withAlpha(120),
+                ),
+              ),
+            ),
+            const SizedBox(height: 40),
+          ],
+        );
+      },
+    );
+  }
+}

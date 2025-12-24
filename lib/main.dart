@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_web_plugins/flutter_web_plugins.dart';
+
 import 'router.dart';
 import 'repo/post_repo_md.dart';
 import 'types/blog_types.dart';
 
 void main() {
+  usePathUrlStrategy();
   runApp(const MyApp());
 }
 
