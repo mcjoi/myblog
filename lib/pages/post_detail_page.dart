@@ -132,6 +132,8 @@ class PostDetailPage extends StatelessWidget {
       data: post.markdown,
       selectable: true,
       styleSheet: MarkdownStyleSheet(
+        blockSpacing: 0,
+
         // ===== Paragraph =====
         p: TextStyle(
           fontSize: 20,
@@ -161,7 +163,7 @@ class PostDetailPage extends StatelessWidget {
 
         // ===== Inline code =====
         code: const TextStyle(
-          fontFamily: 'NanumGothicCoding',
+          fontFamily: 'Hack',
           fontSize: 16,
           color: Color(0xFFE6EDF3),
           backgroundColor: Colors.transparent,
@@ -222,24 +224,27 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(top: 20, bottom: 0),
+      padding: const EdgeInsets.all(12.0),
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
           color: const Color.fromARGB(255, 47, 47, 47),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           // border: Border.all(color: const Color(0xFF30363D)),
         ),
-        child: HighlightView(
-          code,
-          language: language,
-          theme: githubDarkTheme, // ⭐ 핵심
-          padding: const EdgeInsets.all(20),
-          textStyle: const TextStyle(
-            fontFamily: 'NanumGothicCoding',
-            fontSize: 20,
-            height: 1.6,
-            color: Color(0xFFC9D1D9),
+        child: Transform.translate(
+          offset: const Offset(0, 6),
+          child: HighlightView(
+            code,
+            language: language,
+            theme: githubDarkTheme, // ⭐ 핵심
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+            textStyle: const TextStyle(
+              fontFamily: 'NanumGothicCoding',
+              letterSpacing: 1.3,
+              fontSize: 18,
+              height: 1.6,
+            ),
           ),
         ),
       ),
@@ -273,10 +278,10 @@ class _MarkdownImageBuilder extends MarkdownElementBuilder {
 
 const Map<String, TextStyle> githubDarkTheme = {
   'root': TextStyle(
-    backgroundColor: Color(0xFF0D1117),
+    backgroundColor: Colors.transparent,
     color: Color(0xFFC9D1D9),
   ),
-  'keyword': TextStyle(color: Color(0xFFFF7B72)),
+  'keyword': TextStyle(color: Color.fromARGB(255, 255, 253, 114)),
   'built_in': TextStyle(color: Color(0xFFFF7B72)),
   'type': TextStyle(color: Color(0xFF79C0FF)),
   'literal': TextStyle(color: Color(0xFF79C0FF)),

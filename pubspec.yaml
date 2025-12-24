@@ -40,3 +40,6 @@ flutter:
     - family: NanumGothicCoding
       fonts:
         - asset: fonts/NanumGothicCoding-Regular.ttf
+    - family: Hack
+      fonts:
+        - asset: fonts/Hack-Regular.ttf
